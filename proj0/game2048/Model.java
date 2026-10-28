@@ -5,7 +5,7 @@ import java.util.Observable;
 
 
 /** The state of a game of 2048.
- *  @author TODO: YOUR NAME HERE
+ *  @author TODO: liu
  */
 public class Model extends Observable {
     /** Current contents of the board. */
@@ -106,18 +106,43 @@ public class Model extends Observable {
      *    value, then the leading two tiles in the direction of motion merge,
      *    and the trailing tile does not.
      * */
+    //第一遍尝试失败，用deepseek给的target指针来实现
     public boolean tilt(Side side) {
         boolean changed;
         changed = false;
-
-        // TODO: Modify this.board (and perhaps this.score) to account
-        // for the tilt to the Side SIDE. If the board changed, set the
-        // changed local variable to true.
-
-        checkGameOver();
-        if (changed) {
-            setChanged();
+//再换方向的时候，会自然的映射，不用自己实现，但要确定移动方向,最后再恢复north就好了
+        board.setViewingPerspective(side);
+        //实现上移策略即可，对每一列进行讨论
+        for(int c = 0; c < board.size(); c++){
+            int target = board.size()-1;
+            boolean lastMerge = false;
+            for(int r = board.size()-1; r >= 0; r--){
+                if(board.tile(c,r)==null){
+                    continue;
+                }
+                if(target+1 < board.size()&& !lastMerge){
+                    //尝试向上合并,这里条件必须分开写，否则会抛出异常，因为不确定board.tile(c,target+1)是否为空
+                    if(board.tile(c,target+1)!=null&&board.tile(c,target+1).value()==board.tile(c,r).value()) {
+                        score += board.tile(c, r).value() * 2;
+                        board.move(c, target+1, board.tile(c, r));
+                        changed = true;
+                        lastMerge = true;
+                        continue;
+                    }
+                }
+                //普通移动
+                if(target!=r){
+                    board.move(c,target,tile(c,r));
+                    changed=true;
+                    //此时不能移动target指针
+                }
+                target--;
+                lastMerge=false;
+            }
         }
+
+        board.setViewingPerspective(Side.NORTH);
+        checkGameOver();
         return changed;
     }
 
@@ -137,7 +162,13 @@ public class Model extends Observable {
      *  Empty spaces are stored as null.
      * */
     public static boolean emptySpaceExists(Board b) {
-        // TODO: Fill in this function.
+        for(int i=0;i<b.size();i++){
+            for(int j=0;j<b.size();j++){
+                if(b.tile(i,j)==null){
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -147,7 +178,14 @@ public class Model extends Observable {
      * given a Tile object t, we get its value with t.value().
      */
     public static boolean maxTileExists(Board b) {
-        // TODO: Fill in this function.
+        for(int i=0;i<b.size();i++){
+            for(int j=0;j<b.size();j++){
+                //null代表不指向任何对象的引用
+                if(b.tile(i,j) != null && b.tile(i,j).value() == MAX_PIECE){
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -158,8 +196,28 @@ public class Model extends Observable {
      * 2. There are two adjacent tiles with the same value.
      */
     public static boolean atLeastOneMoveExists(Board b) {
-        // TODO: Fill in this function.
-        return false;
+        //至少有一个空位
+        if(emptySpaceExists(b)){
+            return true;
+        }else{//判断是否有相同的相邻元素
+            for(int i = 0; i < b.size(); i++){
+                for(int j =0; j < b.size(); j++){
+                    //判断向上
+                    if (i-1>=0&&b.tile(i,j).value()==b.tile(i-1,j).value()){
+                        return true;
+                    } else if (i+1<b.size()&&b.tile(i,j).value()==b.tile(i+1,j).value()){
+                        //判断向下
+                        return true;
+                    } else if (j-1>=0&&b.tile(i,j).value()==b.tile(i,j-1).value()) {
+                        //判断向左
+                        return true;
+                    } else if(j+1 < b.size() && b.tile(i,j).value() ==b.tile(i,j+1).value() ){
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 
 
